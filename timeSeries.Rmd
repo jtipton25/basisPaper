@@ -1,0 +1,39 @@
+---
+title: "Time Series"
+author: "John Tipton"
+date: "August 24, 2015"
+output: "pdf_document"
+---
+
+First, we start with the canonical difference equation for the time series autoregressive model of order 1 (AR(1))
+\begin{align*}
+y_t & = \phi y_{t-1} + \epsilon_t
+\end{align*}
+where the time series observations for times $t = 1, \ldots, T$ are given by the vector $\mathbf{y} = \left( y_1, \ldots, y_T \right)$ where $y_t$ is the observation of the time serise at time $t$. The autoregressive parameter $\phi$ controls the strength of autocorrelation in the time series with $-1 < \phi < 1$ and the random error $\epsilon_t \sim N(0, \sigma^2)$ is independent for different times (i.e. the covariance $\mathrm{Cov}(\epsilon_t, \epsilon_{t+k}) = 0$ for $k \neq 0$). 
+
+The expected value $\mathrm{E}(y_t)$ of the time series at time $t$ is 
+\begin{align*}
+\mathrm{E}(y_t) & = \mathrm{E}(\phi y_{t-1}) + \mathrm{E}(\epsilon_t) \\
+& = \phi \mathrm{E}(y_{t-1}) + 0
+\end{align*}
+where, assuming a constant mean $\mu$
+and assuming constant variance through time, the variance is 
+\begin{align*}
+\mathrm{Var}(y_t) & = \mathrm{Var}(\phi y_{t - 1} + \epsilon_t) \\
+& = \mathrm{Var}(\phi y_{t - 1}) + \mathrm{Var}(\epsilon_t) + 2 \mathrm{Cov}(\phi y_{t - 1} \epsilon_t) \\
+& = \phi^2 \mathrm{Var}(y_{t - 1}) + \sigma^2  + 0 \\
+\end{align*}
+Then using our modeling assumption $\mathrm{Var}(y_t) = \mathrm{Var}(y_{t-1})$,
+\begin{align*}
+\mathrm{Var}(y_t) - \phi^2 \mathrm{Var}(y_t) & = \sigma^2 \\
+% & = \phi^2 \left(\phi^2 \mathrm{Var}(y_{t - 2}) + \sigma^2 \right) + \sigma^2 \\
+% & = \vdots \\
+\end{align*}
+gives the solution $\mathrm{Var}(y_t) = \frac{\sigma^2}{1 - \phi^2}$.
+
+The covariance between observations $\mathrm{Cov}(y_t, y_{t+k})$ at times $k$ lags apart (assuming without loss of generality that $k>0$) is
+\begin{align*}
+\mathrm{Cov}(y_t, y_{t+k}) & = \mathrm{E}(y_t y_{t+k}) - \mathrm{E}(y_t) \mathrm{E}(y_{t+k}) \\ 
+& = \mathrm{E}(y_t (\phi y_{t+k-1} + \epsilon_{t+k})) - 
+\end{align*}
+

@@ -1,0 +1,17 @@
+{
+    "contents" : "---\ntitle: \"Time Series\"\nauthor: \"John Tipton\"\ndate: \"August 24, 2015\"\noutput: \"pdf_document\"\n---\n\nFirst, we start with the canonical difference equation for the time series autoregressive model of order 1 (AR(1))\n\\begin{align*}\ny_t & = \\phi y_{t-1} + \\epsilon_t\n\\end{align*}\nwhere the time series observations for times $t = 1, \\ldots, T$ are given by the vector $\\mathbf{y} = \\left( y_1, \\ldots, y_T \\right)$ where $y_t$ is the observation of the time serise at time $t$. The autoregressive parameter $\\phi$ controls the strength of autocorrelation in the time series with $-1 < \\phi < 1$ and the random error $\\epsilon_t \\sim N(0, \\sigma^2)$ is independent for different times (i.e. the covariance $\\mathrm{Cov}(\\epsilon_t, \\epsilon_{t+k}) = 0$ for $k \\neq 0$). \n\nThe expected value $\\mathrm{E}(y_t)$ of the time series at time $t$ is \n\\begin{align*}\n\\mathrm{E}(y_t) & = \\mathrm{E}(\\phi y_{t-1}) + \\mathrm{E}(\\epsilon_t) \\\\\n& = \\phi \\mathrm{E}(y_{t-1}) + 0\n\\end{align*}\nwhere, assuming a constant mean $\\mu$\nand assuming constant variance through time, the variance is \n\\begin{align*}\n\\mathrm{Var}(y_t) & = \\mathrm{Var}(\\phi y_{t - 1} + \\epsilon_t) \\\\\n& = \\mathrm{Var}(\\phi y_{t - 1}) + \\mathrm{Var}(\\epsilon_t) + 2 \\mathrm{Cov}(\\phi y_{t - 1} \\epsilon_t) \\\\\n& = \\phi^2 \\mathrm{Var}(y_{t - 1}) + \\sigma^2  + 0 \\\\\n\\end{align*}\nThen using our modeling assumption $\\mathrm{Var}(y_t) = \\mathrm{Var}(y_{t-1})$,\n\\begin{align*}\n\\mathrm{Var}(y_t) - \\phi^2 \\mathrm{Var}(y_t) & = \\sigma^2 \\\\\n% & = \\phi^2 \\left(\\phi^2 \\mathrm{Var}(y_{t - 2}) + \\sigma^2 \\right) + \\sigma^2 \\\\\n% & = \\vdots \\\\\n\\end{align*}\ngives the solution $\\mathrm{Var}(y_t) = \\frac{\\sigma^2}{1 - \\phi^2}$.\n\nThe covariance between observations $\\mathrm{Cov}(y_t, y_{t+k})$ at times $k$ lags apart (assuming without loss of generality that $k>0$) is\n\\begin{align*}\n\\mathrm{Cov}(y_t, y_{t+k}) & = \\mathrm{E}(y_t y_{t+k}) - \\mathrm{E}(y_t) \\mathrm{E}(y_{t+k}) \\\\ \n& = \\mathrm{E}(y_t (\\phi y_{t+k-1} + \\epsilon_{t+k})) - \n\\end{align*}\n\n",
+    "created" : 1440435510626.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "4236493298",
+    "id" : "6286DECB",
+    "lastKnownWriteTime" : 1440444401,
+    "path" : "~/basisPaper/timeSeries.Rmd",
+    "project_path" : "timeSeries.Rmd",
+    "properties" : {
+        "tempName" : "Untitled1"
+    },
+    "source_on_save" : false,
+    "type" : "r_markdown"
+}
