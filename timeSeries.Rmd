@@ -6,23 +6,56 @@ output: "pdf_document"
 ---
 
 First, we start with the canonical difference equation for the time series autoregressive model of order 1 (AR(1))
-\begin{align*}
+\begin{align}
+\label{ar}
 y_t & = \phi y_{t-1} + \epsilon_t
-\end{align*}
+\end{align}
 where the time series observations for times $t = 1, \ldots, T$ are given by the vector $\mathbf{y} = \left( y_1, \ldots, y_T \right)$ where $y_t$ is the observation of the time serise at time $t$. The autoregressive parameter $\phi$ controls the strength of autocorrelation in the time series with $-1 < \phi < 1$ and the random error $\epsilon_t \sim N(0, \sigma^2)$ is independent for different times (i.e. the covariance $\mathrm{Cov}(\epsilon_t, \epsilon_{t+k}) = 0$ for $k \neq 0$). 
+
+# Lets simulate some data here
+```{r simData}
+N <- 1                              ## pick the number of time series
+t <- 1000                           ## pick a time series length
+mu <- sin(2 * pi * 1:t)
+s <- 10                             ## pick standard deviation
+phi <- 0.75                         ## pick autocorrelation parameter
+
+##
+## function to simulate time series
+##
+
+simTimeSeries <- function(t, N, mu, s, phi){
+  y <- matrix(mu[1], t, N)                            ## initialize container
+  epsilon <- rnorm(N*(t-1), 0, s)                     ## independent random error
+  y[2:t, ] <- mu[2:t] + phi * y[1:(t-1), ] + epsilon  ## autoregressive model
+  return(y)
+}
+
+y <- simTimeSeries(t, N, mu, s, phi)
+matplot(y, type="l", main="simulated time series", xlab="t")
+
+```
 
 The expected value $\mathrm{E}(y_t)$ of the time series at time $t$ is 
 \begin{align*}
 \mathrm{E}(y_t) & = \mathrm{E}(\phi y_{t-1}) + \mathrm{E}(\epsilon_t) \\
 & = \phi \mathrm{E}(y_{t-1}) + 0
 \end{align*}
-where, assuming a constant mean $\mu$
+where, assuming a constant mean $\mu$ accross time we have
+\begin{align*}
+\mathrm{E}(y_t) & = \phi \mathrm{E}(y_{t-1})\\
+\rightarrow
+\mathrm{E}(y_t) (1 - \phi) & = 0\\
+\rightarrow
+\mathrm{E}(y_t) & = 0\\
+\end{align*}
 and assuming constant variance through time, the variance is 
 \begin{align*}
 \mathrm{Var}(y_t) & = \mathrm{Var}(\phi y_{t - 1} + \epsilon_t) \\
-& = \mathrm{Var}(\phi y_{t - 1}) + \mathrm{Var}(\epsilon_t) + 2 \mathrm{Cov}(\phi y_{t - 1} \epsilon_t) \\
+& = \mathrm{Var}(\phi y_{t - 1}) + \mathrm{Var}(\epsilon_t) + 2 \mathrm{Cov}(\phi y_{t - 1}, \epsilon_t) \\
 & = \phi^2 \mathrm{Var}(y_{t - 1}) + \sigma^2  + 0 \\
 \end{align*}
+
 Then using our modeling assumption $\mathrm{Var}(y_t) = \mathrm{Var}(y_{t-1})$,
 \begin{align*}
 \mathrm{Var}(y_t) - \phi^2 \mathrm{Var}(y_t) & = \sigma^2 \\
@@ -30,10 +63,74 @@ Then using our modeling assumption $\mathrm{Var}(y_t) = \mathrm{Var}(y_{t-1})$,
 % & = \vdots \\
 \end{align*}
 gives the solution $\mathrm{Var}(y_t) = \frac{\sigma^2}{1 - \phi^2}$.
+```{r properties}
+N <- 10                               ## replicates N
+y <- simTimeSeries(t, N, mu, s, phi)  ## simulate time series
+layout(matrix(1:2, 2, 1))
+matplot(y[, 1:min(N, 10)], type="l", col="black",
+        main=paste(min(N, 10), " simulated time series", sep="") , xlab="t")
+## legend() add in legend for mean and y label
+## Notice that the y axis is shrunk to 0
+
+## 
+
+mean_y <- apply(y[2:t, ], 1, mean)    ##  calculate the mean
+var_y <-apply(y[2:t, ], 1, var)       ##  calculate the variance
+sd_y <- apply(y[2:t, ], 1, sd)        ##  calculate the standard deviation
+
+matplot(mean_y, type="l", col="red", lwd = 3, add = TRUE)
+matplot(sd_y, type = 'l', add = TRUE, col = 'green', lwd = 3)
+```
 
 The covariance between observations $\mathrm{Cov}(y_t, y_{t+k})$ at times $k$ lags apart (assuming without loss of generality that $k>0$) is
 \begin{align*}
 \mathrm{Cov}(y_t, y_{t+k}) & = \mathrm{E}(y_t y_{t+k}) - \mathrm{E}(y_t) \mathrm{E}(y_{t+k}) \\ 
-& = \mathrm{E}(y_t (\phi y_{t+k-1} + \epsilon_{t+k})) - 
+& = \mathrm{E}(y_t (\phi y_{t+k-1} + \epsilon_{t+k})) - 0 \\
+& = \mathrm{E}(\phi y_t y_{t+k-1}) + \mathrm{E}(y_t \epsilon_{t+k}) \\
+& = \mathrm{E}(\phi y_t y_{t+k-1}) + \mathrm{E}(y_t) \mathrm{E}(\epsilon_{t+k})\\
+& = \mathrm{E}(\phi y_t y_{t+k-1}) + 0 \\
+& = \mathrm{E}(y_t (\phi y_{t+k-2} + \epsilon_{t+k-1})) \\
+& = \vdots \\
+& = \phi^{k} \mathrm{E}(y_t^2) \\
+& = \phi^{k} \frac{\sigma^2}{1 - \phi^2}. \\
 \end{align*}
+
+Thus, knowing the mean, variance, and covariance at each time $t$ and each lag $k$, we can write the autoregressive model (\ref{ar1}) as 
+\begin{align}
+\label{var}
+\mathbf{y} & = \boldsymbol{\mu} + \boldsymbol{\eta}
+\end{align}
+where $\mathbf{\mu} = \left(0, \ldots, 0 \right)$ and $\eta ~ \mbox{N}\left( \mathbf{0}, \boldsymbol{\Sigma} \right)$ where
+\begin{align*}
+\boldsymbol{\Sigma} & = \frac{\sigma^2}{1 - \phi^2} \left(\begin{pmatrix}
+1 & \phi & \phi^2 & \phi^3 & \cdots & \phi^{T-1}\\
+\phi & 1 & \phi & \phi^2 & \cdots & \phi^{T-2}\\
+\phi^2 & \phi & 1 & \phi & \cdots & \phi^{T-3} \\
+\phi^3 & \phi^2 & \phi & 1 & \cdots & \phi^{T-4} \\
+\vdots & \vdots & \vdots & \vdots & \ddots & \vdots \\
+\phi^{T-1} & \phi^{T-2} & \phi^{T-3} & \phi^{T-4} & \cdots & 1
+\end{pmatrix} \right)
+\end{align*}
+
+Typically, the distributions of interest in a time series model are the forecast distribution (used for prediction) and the smoothing distribution (used for estimation of parameters). The forecast distribution at time $\tau + 1$ consists of knowledge of all of the observations of the time series up to the time $\tau$ $y_{1:{\tau}} = (y_1, \ldots, y_{\tau})$ given by
+\begin{align*}
+[y_{\tau+1} | y_{1:{\tau}}] & = [y_{\tau+1} | y_{\tau}]
+\end{align*}
+by the Markov assumption in the autoregressive model. Then, the one step ahead expected forecast is 
+\begin{align*}
+\mathrm{E}(y_{\tau+1} | y_{1:{\tau}}) & = \mathrm{E}(y_{\tau+1} | y_{\tau}) \\
+& = \mathrm{E}(\phi y_{\tau} + \epsilon_{\tau + 1} | y_{\tau}) \\
+& = \mathrm{E}(\phi y_{\tau}| y_{\tau}) + \mathrm{E}(\epsilon_{\tau+1} | y_{\tau}) \\
+& \phi y_{\tau} + 0. \\
+\end{align*}
+The $k$ step ahead expected forecast is calculated by using a recursive formula of the equation above where $\mathrm{E}(y_{\tau + k} | y_{1:{\tau}}) = \phi^k y_{\tau}$.
+
+Likewise, the one step ahead forecast variance is  
+\begin{align*}
+\mathrm{Var}(y_{\tau+1} | y_{1:{\tau}}) & = \mathrm{Var}(y_{\tau+1} | y_{\tau}) \\
+& = \mathrm{Var}(\phi y_{\tau} + \epsilon_{\tau+1} | y_{\tau}) \\
+& = \phi^2 \mathrm{Var}(y_{\tau}| y_{\tau}) + 2 \mathrm{Cov}(\phi y_{\tau}, \epsilon_{\tau+1}| y_{\tau}) + \mathrm{Var}(\epsilon_{\tau+1} | y_{\tau}) \\
+& =  0 + 0 + \sigma^2.
+\end{align*}
+The $k$ step ahead forecast variance can also be calcuated recursively giving $\mathrm{Var}(y_{\tau+k} | y_{1:{\tau-1}}) = \sum_{i=1}^k \phi^{2(i-1)} \sigma^2$.
 
