@@ -41,10 +41,21 @@ multiplot <- function(..., plotlist=NULL, cols) {
 ##
 
 simTimeSeries <- function(t, N, mu, s, phi){
-  y <- matrix(0, t, N)                                ## initialize container
-  y[1, ] <- mu[1] + rnorm(N, 0, s)                      ## initailize time series at time 1
-  epsilon <- rnorm(N*(t-1), 0, s)                     ## independent random error
-  y[2:t, ] <- mu[2:t] + phi * y[1:(t-1), ] + epsilon  ## autoregressive model
+  if(N == 1){
+    y <- rep(0, t)                                      ## initialize container
+    y[1] <- mu[1] + rnorm(1, 0, s)                      ## initailize time series at time 1
+    for(i in 2:t){
+      epsilon <- rnorm(1, 0, s)                         ## independent random error
+      y[i] <- mu[i] + phi * y[i-1] + epsilon            ## autoregressive model
+    }
+  } else {
+    y <- matrix(0, t, N)                                ## initialize container
+    y[1, ] <- mu[1] + rnorm(N, 0, s)                    ## initailize time series at time 1
+    for(i in 2:t){
+      epsilon <- rnorm(N, 0, s)                         ## independent random error
+      y[i, ] <- mu[i] + phi * y[i-1, ] + epsilon        ## autoregressive model
+    }
+  }
   return(y)
 }
 
@@ -60,14 +71,16 @@ where the time series observations for times $t = 1, \ldots, T$ are given by the
 ```{r simData}
 N <- 1                              ## pick the number of time series
 t <- 1000                           ## pick a time series length
-mu <- sin(2 * pi * (1:t)/t)
-s <- 0.5                            ## pick standard deviation
-phi <- 0.75                         ## pick autocorrelation parameter
-
-
+mu <- rep(0, t)
+# mu <- sin(2 * pi * (1:t)/t)         ## pick a mean
+s <- 0.25                           ## pick standard deviation
+phi <- 0.90                         ## pick autocorrelation parameter
 
 y <- simTimeSeries(t, N, mu, s, phi)
-matplot(y, type="l", main="simulated time series", xlab="t")
+ggplot(data=data.frame(y=y, t=1:t), aes(y=y, x=t)) + 
+  geom_line(alpha=1, colour="darkgrey") + 
+  ggtitle("Plot of a single time series") + 
+  theme(plot.title = element_text(size=18))
 
 ```
 
@@ -129,7 +142,8 @@ plot_mean <- ggplot(data = melt_time, aes(y=value, x=t)) +
                       values=c("empirical"="red","truth"="blue")) + 
   scale_y_continuous("y") + scale_x_continuous("t") +
   ggtitle(paste(min(N, 10), 
-                "time series replicates with empircal and true mean"))
+                "time series with empircal and true mean")) +
+  theme(plot.title = element_text(size=18))
  
 plot_sd <- ggplot(data = melt_time, aes(y=value, x=t)) + 
   geom_line(alpha=1, colour="darkgrey") + 
@@ -141,25 +155,11 @@ plot_sd <- ggplot(data = melt_time, aes(y=value, x=t)) +
                       values=c("empirical"="red","truth"="blue")) + 
   scale_y_continuous("y") + scale_x_continuous("t") + 
   ggtitle(paste(min(N, 10), 
-                "time series replicates with empirical and true standard deviation"))
+                "time series with empirical and true standard deviation")) + 
+  theme(plot.title = element_text(size=18))
 
-
+## Plot using multiplot
 multiplot(plot_mean, plot_sd, cols=1)
-#   scale_fill_discrete(breaks=c(expression(hat(mu)), expression(mu)))
-# matplot(y[, 1:min(N, 10)], type="l", col=adjustcolor("grey", alpha.f = 0.75),
-#         main=paste(min(N, 10), " simulated time series", sep="") , xlab="t", ylab="y")
-# matplot(mean_y, type="l", col=adjustcolor("red", alpha.f=0.75), lwd = 2, add = TRUE)
-# lines(1:t, mu, col = adjustcolor("blue", alpha.f=0.75), lty=2, lwd = 3)
-# legend("topright", c(expression(hat(mu)), expression(hat(mu))), lty=c(1,2),
-#        col=c(adjustcolor("red", alpha.f=0.75), 
-#              adjustcolor("blue", alpha.f=0.75)), lwd=c(3,3), cex=0.5)
-# matplot(y[, 1:min(N, 10)], type="l", col=adjustcolor("grey", alpha.f = 0.75),
-#         main=paste(min(N, 10), " simulated time series", sep="") , xlab="t", ylab="y")
-# matplot(sd_y, type = 'l', add = TRUE, col = 'red', lwd = 3)
-# lines(1:t, rep(s, t), col =adjustcolor("blue", alpha.f=0.75), lty=2, lwd=3)
-# legend("topright", c(expression(hat(sigma)), expression(hat(sigma))), lty=c(1,2),
-#        col=c(adjustcolor("red", alpha.f=0.75), 
-#              adjustcolor("blue", alpha.f=0.75)), lwd=c(3,3), cex=0.5)
 ```
 
 The covariance between observations $\mathrm{Cov}(y_t, y_{t+k})$ at times $k$ lags apart (assuming without loss of generality that $k>0$) is
@@ -176,16 +176,34 @@ The covariance between observations $\mathrm{Cov}(y_t, y_{t+k})$ at times $k$ la
 \end{align*}
 
 ```{r covariance}
-## detrend the time series
-y_detrend <- y-mu
-covariances <- matrix(0, t, N)
-for(i in 1:N){
-  covariances[, i] <- c(acf(y_detrend[,i], type="covariance", plot=FALSE, 
-                            lag.max=t)$acf)
-}
-matplot(covariances, type='l', ylim=c(0, s^2/(1-phi^2) ))
-lines(s^2/(1-phi^2) * phi^(1:t))
+## detrend the time series <- if you set mu = something other than 0
+# y_detrend <- y-mu
+# ggplot(data=melt(data.frame(y=y_detrend, t=1:t), id="t"), aes(y=value, x=t)) + 
+#   geom_line(alpha=1, colour="darkgrey") + 
+#   scale_y_continuous("y") + scale_x_continuous("t") +
+#   ggtitle(paste(min(N, 10), 
+#                 "time series with trend removed")) + 
+#   theme(plot.title = element_text(size=18))
 
+covariances <- matrix(0, min(t, 20), N)
+for(i in 1:N){
+    for(k in 1:min(t, 20)-1){
+      covariances[k+1, i] <- cov(y[1:(t-k), i], y[1:(t-k) + k, i])
+  }
+}
+
+cov_data <- data.frame(y=covariances, t=1:20)
+melt_cov <- melt(cov_data, id="t")
+ggplot(data = melt_cov, aes(y=value, x=t)) + 
+  geom_line(data=melt_cov, aes(y=value, x=t, group=variable, colour="empirical"), alpha=1) + 
+  geom_line(data=data.frame(y=s^2/(1-phi^2) * phi^(0:min(t,20)), x=0:min(t, 20)), aes(y=y, x=x, colour="truth"), 
+            alpha=0.75) + 
+  scale_colour_manual("Autocovariance", labels=c("empirical", "true"), 
+                      values=c("empirical"="darkgrey","truth"="blue")) + 
+  scale_y_continuous("autocovariance") + scale_x_continuous("lag") + 
+  ggtitle(paste(min(N, 10), 
+                "empirical autocovariance functions")) + 
+  theme(plot.title = element_text(size=18))
 ```
 
 Thus, knowing the mean, variance, and covariance at each time $t$ and each lag $k$, we can write the autoregressive model (\ref{ar1}) as 
@@ -204,6 +222,23 @@ where $\mathbf{\mu} = \left(0, \ldots, 0 \right)$ and $\eta ~ \mbox{N}\left( \ma
 \phi^{T-1} & \phi^{T-2} & \phi^{T-3} & \phi^{T-4} & \cdots & 1
 \end{pmatrix} \right)
 \end{align*}
+
+```{r vectorTimeSeries}
+Sigma <- s^2 / (1 - phi^2) * toeplitz(phi^(0:(t-1)))
+library(mvtnorm)
+y_vec <- t(rmvnorm(N, mu, Sigma))
+
+vec_data <- data.frame(y=y_vec, t=1:t)
+melt_vec <- melt(vec_data, id="t")                        
+
+
+ggplot(data = melt_vec, aes(y=value, x=t)) + 
+  geom_line(alpha=1, colour="darkgrey") + 
+  scale_y_continuous("y") + scale_x_continuous("t") + 
+  ggtitle(paste(min(N, 10), 
+                "time series simulated as a vector")) + 
+  theme(plot.title = element_text(size=18))
+```
 
 Typically, the distributions of interest in a time series model are the forecast distribution (used for prediction) and the smoothing distribution (used for estimation of parameters). The forecast distribution at time $\tau + 1$ consists of knowledge of all of the observations of the time series up to the time $\tau$ $y_{1:{\tau}} = (y_1, \ldots, y_{\tau})$ given by
 \begin{align*}
