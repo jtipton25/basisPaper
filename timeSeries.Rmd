@@ -4,32 +4,67 @@ author: "John Tipton"
 date: "August 24, 2015"
 output: "pdf_document"
 ---
-
-First, we start with the canonical difference equation for the time series autoregressive model of order 1 (AR(1))
-\begin{align}
-\label{ar}
-y_t & = \phi y_{t-1} + \epsilon_t
-\end{align}
-where the time series observations for times $t = 1, \ldots, T$ are given by the vector $\mathbf{y} = \left( y_1, \ldots, y_T \right)$ where $y_t$ is the observation of the time serise at time $t$. The autoregressive parameter $\phi$ controls the strength of autocorrelation in the time series with $-1 < \phi < 1$ and the random error $\epsilon_t \sim N(0, \sigma^2)$ is independent for different times (i.e. the covariance $\mathrm{Cov}(\epsilon_t, \epsilon_{t+k}) = 0$ for $k \neq 0$). 
-
-# Lets simulate some data here
-```{r simData}
-N <- 1                              ## pick the number of time series
-t <- 1000                           ## pick a time series length
-mu <- sin(2 * pi * 1:t)
-s <- 10                             ## pick standard deviation
-phi <- 0.75                         ## pick autocorrelation parameter
+```{r}
+## Load R packages and define helper functions
+library(ggplot2, quietly = TRUE)
+library(reshape2, quietly = TRUE)
+library(grid, quietly = TRUE)
+## Function to plot multiple ggplots on the same image
+multiplot <- function(..., plotlist=NULL, cols) {
+  require(grid)
+	
+	# Make a list from the ... arguments and plotlist
+	plots <- c(list(...), plotlist)
+	
+	numPlots = length(plots)
+	
+	# Make the panel
+	plotCols = cols                       # Number of columns of plots
+	plotRows = ceiling(numPlots/plotCols) # Number of rows needed, calculated from # of cols
+	
+	# Set up the page
+	grid.newpage()
+	pushViewport(viewport(layout = grid.layout(plotRows, plotCols)))
+	vplayout <- function(x, y)
+		viewport(layout.pos.row = x, layout.pos.col = y)
+	
+	# Make each plot, in the correct location
+	for (i in 1:numPlots) {
+		curRow = ceiling(i/plotCols)
+		curCol = (i-1) %% plotCols + 1
+		print(plots[[i]], vp = vplayout(curRow, curCol ))
+	}	
+}
 
 ##
 ## function to simulate time series
 ##
 
 simTimeSeries <- function(t, N, mu, s, phi){
-  y <- matrix(mu[1], t, N)                            ## initialize container
+  y <- matrix(0, t, N)                                ## initialize container
+  y[1, ] <- mu[1] + rnorm(N, 0, s)                      ## initailize time series at time 1
   epsilon <- rnorm(N*(t-1), 0, s)                     ## independent random error
   y[2:t, ] <- mu[2:t] + phi * y[1:(t-1), ] + epsilon  ## autoregressive model
   return(y)
 }
+
+```
+First, we start with the canonical difference equation for the time series autoregressive model of order 1 (AR(1))
+\begin{align}
+\label{ar}
+y_t & = \mu_t + \phi y_{t-1} + \epsilon_t
+\end{align}
+where the time series observations for times $t = 1, \ldots, T$ are given by the vector $\mathbf{y} = \left( y_1, \ldots, y_T \right)$ where $y_t$ is the observation of the time serise at time $t$. The vector $\boldsymbol{\mu}$ is the temporal mean with $\mu_t$ representing the mean of the time series at time $t$. Often the mean is a trend or seasonal component like in the example below. The autoregressive parameter $\phi$ controls the strength of autocorrelation in the time series with $-1 < \phi < 1$ and the random error $\epsilon_t \sim N(0, \sigma^2)$ is independent for different times (i.e. the covariance $\mathrm{Cov}(\epsilon_t, \epsilon_{t+k}) = 0$ for $k \neq 0$). 
+
+# Lets simulate some data here
+```{r simData}
+N <- 1                              ## pick the number of time series
+t <- 1000                           ## pick a time series length
+mu <- sin(2 * pi * (1:t)/t)
+s <- 0.5                            ## pick standard deviation
+phi <- 0.75                         ## pick autocorrelation parameter
+
+
 
 y <- simTimeSeries(t, N, mu, s, phi)
 matplot(y, type="l", main="simulated time series", xlab="t")
@@ -66,20 +101,65 @@ gives the solution $\mathrm{Var}(y_t) = \frac{\sigma^2}{1 - \phi^2}$.
 ```{r properties}
 N <- 10                               ## replicates N
 y <- simTimeSeries(t, N, mu, s, phi)  ## simulate time series
-layout(matrix(1:2, 2, 1))
-matplot(y[, 1:min(N, 10)], type="l", col="black",
-        main=paste(min(N, 10), " simulated time series", sep="") , xlab="t")
 ## legend() add in legend for mean and y label
 ## Notice that the y axis is shrunk to 0
 
 ## 
 
-mean_y <- apply(y[2:t, ], 1, mean)    ##  calculate the mean
-var_y <-apply(y[2:t, ], 1, var)       ##  calculate the variance
-sd_y <- apply(y[2:t, ], 1, sd)        ##  calculate the standard deviation
+mean_y <- apply(y, 1, mean)    ##  calculate the mean
+var_y <-apply(y, 1, var)       ##  calculate the variance
+sd_y <- apply(y, 1, sd)        ##  calculate the standard deviation
 
-matplot(mean_y, type="l", col="red", lwd = 3, add = TRUE)
-matplot(sd_y, type = 'l', add = TRUE, col = 'green', lwd = 3)
+time_data <- data.frame(y=y, t=1:t)
+melt_time <- melt(time_data, id="t")                        
+summary_data <- data.frame(mean_y=mean_y, var_y=var_y, sd_y=sd_y, mu=mu, 
+                        s=s, t=1:t)
+
+
+## plot time series with mean and variance
+
+
+plot_mean <- ggplot(data = melt_time, aes(y=value, x=t)) + 
+  geom_line(alpha=1, colour="darkgrey") + 
+  geom_line(data=summary_data, aes(y=mean_y, x=t, colour="empirical"), 
+            alpha=0.75) + 
+  geom_line(data=summary_data, aes(y=mu, x=t, colour="truth"), alpha=0.75, 
+            lty=2, lwd=2) + 
+  scale_colour_manual("Mean", labels=c("empirical", "truth"), 
+                      values=c("empirical"="red","truth"="blue")) + 
+  scale_y_continuous("y") + scale_x_continuous("t") +
+  ggtitle(paste(min(N, 10), 
+                "time series replicates with empircal and true mean"))
+ 
+plot_sd <- ggplot(data = melt_time, aes(y=value, x=t)) + 
+  geom_line(alpha=1, colour="darkgrey") + 
+  geom_line(data=summary_data, aes(y=sd_y, x=t, colour="empirical"), 
+            alpha=0.75) + 
+  geom_line(data=summary_data, aes(y=s, x=t, colour="truth"), alpha=0.75, 
+            lty=2, lwd=2) + 
+  scale_colour_manual("Std Dev", labels=c("empirical", "truth"), 
+                      values=c("empirical"="red","truth"="blue")) + 
+  scale_y_continuous("y") + scale_x_continuous("t") + 
+  ggtitle(paste(min(N, 10), 
+                "time series replicates with empirical and true standard deviation"))
+
+
+multiplot(plot_mean, plot_sd, cols=1)
+#   scale_fill_discrete(breaks=c(expression(hat(mu)), expression(mu)))
+# matplot(y[, 1:min(N, 10)], type="l", col=adjustcolor("grey", alpha.f = 0.75),
+#         main=paste(min(N, 10), " simulated time series", sep="") , xlab="t", ylab="y")
+# matplot(mean_y, type="l", col=adjustcolor("red", alpha.f=0.75), lwd = 2, add = TRUE)
+# lines(1:t, mu, col = adjustcolor("blue", alpha.f=0.75), lty=2, lwd = 3)
+# legend("topright", c(expression(hat(mu)), expression(hat(mu))), lty=c(1,2),
+#        col=c(adjustcolor("red", alpha.f=0.75), 
+#              adjustcolor("blue", alpha.f=0.75)), lwd=c(3,3), cex=0.5)
+# matplot(y[, 1:min(N, 10)], type="l", col=adjustcolor("grey", alpha.f = 0.75),
+#         main=paste(min(N, 10), " simulated time series", sep="") , xlab="t", ylab="y")
+# matplot(sd_y, type = 'l', add = TRUE, col = 'red', lwd = 3)
+# lines(1:t, rep(s, t), col =adjustcolor("blue", alpha.f=0.75), lty=2, lwd=3)
+# legend("topright", c(expression(hat(sigma)), expression(hat(sigma))), lty=c(1,2),
+#        col=c(adjustcolor("red", alpha.f=0.75), 
+#              adjustcolor("blue", alpha.f=0.75)), lwd=c(3,3), cex=0.5)
 ```
 
 The covariance between observations $\mathrm{Cov}(y_t, y_{t+k})$ at times $k$ lags apart (assuming without loss of generality that $k>0$) is
@@ -94,6 +174,19 @@ The covariance between observations $\mathrm{Cov}(y_t, y_{t+k})$ at times $k$ la
 & = \phi^{k} \mathrm{E}(y_t^2) \\
 & = \phi^{k} \frac{\sigma^2}{1 - \phi^2}. \\
 \end{align*}
+
+```{r covariance}
+## detrend the time series
+y_detrend <- y-mu
+covariances <- matrix(0, t, N)
+for(i in 1:N){
+  covariances[, i] <- c(acf(y_detrend[,i], type="covariance", plot=FALSE, 
+                            lag.max=t)$acf)
+}
+matplot(covariances, type='l', ylim=c(0, s^2/(1-phi^2) ))
+lines(s^2/(1-phi^2) * phi^(1:t))
+
+```
 
 Thus, knowing the mean, variance, and covariance at each time $t$ and each lag $k$, we can write the autoregressive model (\ref{ar1}) as 
 \begin{align}
