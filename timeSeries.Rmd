@@ -60,78 +60,96 @@ simTimeSeries <- function(t, N, mu, s, phi){
 }
 
 ```
-First, we start with the canonical difference equation for the time series autoregressive model of order 1 (AR(1))
+A time series is a series of observations $y_t$ that occur over a period of time $t = 1, \ldots, T$. Depending on the problem being studied, these measurements could be made at all possible times, at regular intervals in time, or randomly through time. Thus, the analysis that is used must take into account the sampling methods used to obtain the data. The simplest time series is an uncorrelated random walk. In this time series, each observation $y_t$ is just a random move from the previous location $y_{t-1}$. The random walk model is
+\begin{align*}
+y_t & = y_{t-1} + \epsilon_t
+\end{align*}
+where $\epsilon_t ~ \mbox{N}(0, \sigma^2)$ is independent, uncorrelated error.
+```{r randomWalk}
+N <- 1                              ## pick the number of time series
+t <- 1000                           ## pick a time series length
+mu <- rep(0, t)                     ## pick a mean structure
+s_low <- 0.25                       ## pick standard deviation
+s_high <- 1                         ## pick standard deviation
+
+y_s_low <- simTimeSeries(t, N, mu, s_low, phi=0)
+y_s_high <- simTimeSeries(t, N, mu, s_high, phi=0)
+plot_s_low <- ggplot(data=data.frame(y=y_s_low, t=1:t), aes(y=y, x=t)) + 
+  geom_line(alpha=1, colour="darkgrey") + coord_cartesian(ylim=c(-2.5, 2.5)) +
+  ggtitle(substitute(paste("Plot of a random walk time series with ", 
+                           sigma, "=", sd), list(sd=s_low))) + 
+  theme(plot.title = element_text(size=18)) 
+plot_s_high <- ggplot(data=data.frame(y=y_s_high, t=1:t), aes(y=y, x=t)) + 
+  geom_line(alpha=1, colour="darkgrey") + coord_cartesian(ylim=c(-2.5, 2.5)) +
+  ggtitle(substitute(paste("Plot of a random walk time series with ", 
+                           sigma, "=", sd), list(sd=s_high))) +  
+  theme(plot.title = element_text(size=18)) 
+multiplot(plot_s_low, plot_s_high, cols=1)
+
+```
+
+start with the canonical difference equation for the time series autoregressive model of order 1 (AR(1))
 \begin{align}
 \label{ar}
-y_t & = \mu_t + \phi y_{t-1} + \epsilon_t
+y_t & = \mu + \phi y_{t-1} + \epsilon_t
 \end{align}
-where the time series observations for times $t = 1, \ldots, T$ are given by the vector $\mathbf{y} = \left( y_1, \ldots, y_T \right)$ where $y_t$ is the observation of the time serise at time $t$. The vector $\boldsymbol{\mu}$ is the temporal mean with $\mu_t$ representing the mean of the time series at time $t$. Often the mean is a trend or seasonal component like in the example below. The autoregressive parameter $\phi$ controls the strength of autocorrelation in the time series with $-1 < \phi < 1$ and the random error $\epsilon_t \sim N(0, \sigma^2)$ is independent for different times (i.e. the covariance $\mathrm{Cov}(\epsilon_t, \epsilon_{t+k}) = 0$ for $k \neq 0$). 
+where the time series observations for times $t = 1, \ldots, T$ are given by the vector $\mathbf{y} = \left( y_1, \ldots, y_T \right)$ where $y_t$ is the observation of the time serise at time $t$. The vector $\boldsymbol{\mu}$ is the temporal mean with $\mu$ representing the mean of the time series at time $t$. Often the mean is a trend or seasonal component. The autoregressive parameter $\phi$ controls the strength of autocorrelation in the time series with $-1 < \phi < 1$ and the random error $\epsilon_t \sim N(0, \sigma^2)$ is independent for different times (i.e. the covariance $\mathrm{Cov}(\epsilon_t, \epsilon_{t+k}) = 0$ for $k \neq 0$). 
 
 # Lets simulate some data here
 ```{r simData}
 N <- 1                              ## pick the number of time series
 t <- 1000                           ## pick a time series length
-mu <- rep(0, t)
-# mu <- sin(2 * pi * (1:t)/t)         ## pick a mean
+mu <- rep(0, t)                     ## pick a mean structure
 s <- 0.25                           ## pick standard deviation
-phi <- 0.90                         ## pick autocorrelation parameter
+phi_low <- 0.30                     ## pick autocorrelation parameter
+phi_high <- 0.90                    ## pick autocorrelation parameter
 
-y <- simTimeSeries(t, N, mu, s, phi)
-ggplot(data=data.frame(y=y, t=1:t), aes(y=y, x=t)) + 
+y_phi_low <- simTimeSeries(t, N, mu, s, phi=phi_low)
+y_phi_high <- simTimeSeries(t, N, mu, s, phi=phi_high)
+plot_phi_low <- ggplot(data=data.frame(y=y_phi_low, t=1:t), aes(y=y, x=t)) + 
   geom_line(alpha=1, colour="darkgrey") + 
-  ggtitle("Plot of a single time series") + 
+  ggtitle(substitute(paste("Plot of a single time series with ", phi, "=", p), list(p=phi_low))) + 
   theme(plot.title = element_text(size=18))
-
+plot_phi_high <- ggplot(data=data.frame(y=y_phi_high, t=1:t), aes(y=y, x=t)) + 
+  geom_line(alpha=1, colour="darkgrey") + 
+  ggtitle(substitute(paste("Plot of a single time series with ", phi, "=", p), list(p=phi_high))) +  
+  theme(plot.title = element_text(size=18))
+multiplot(plot_phi_low, plot_phi_high, cols=1)
 ```
 
 The expected value $\mathrm{E}(y_t)$ of the time series at time $t$ is 
 \begin{align*}
-\mathrm{E}(y_t) & = \mathrm{E}(\phi y_{t-1}) + \mathrm{E}(\epsilon_t) \\
-& = \phi \mathrm{E}(y_{t-1}) + 0
+\mathrm{E}(y_t) & = \mathrm{E}(\mu) + \mathrm{E}(\phi y_{t-1}) + \mathrm{E}(\epsilon_t) \\
+& = \mu + \phi \mathrm{E}(y_{t-1}) + 0 \\
+& = \mu + \phi (\mathrm{E}(\mu) + \mathrm{E}(\phi y_{t-2}) + \mathrm{E}(\epsilon_{t-1})) \\
+& = \mu + \phi \mu + \phi^2 \mu + \cdots \\
+& = \frac{\mu} {1 - \phi} \\
 \end{align*}
-where, assuming a constant mean $\mu$ accross time we have
-\begin{align*}
-\mathrm{E}(y_t) & = \phi \mathrm{E}(y_{t-1})\\
-\rightarrow
-\mathrm{E}(y_t) (1 - \phi) & = 0\\
-\rightarrow
-\mathrm{E}(y_t) & = 0\\
-\end{align*}
-and assuming constant variance through time, the variance is 
+where the $\cdots$ form an infinite recursive sum. The autoregressive model assumes a constant variance through time (homoskedasticity). This means that for any times $t$ and $\tau$ $\mathrm{Var}(y_t) = \mathrm{Var}(y_\tau)$. Therefore, the variance 
 \begin{align*}
 \mathrm{Var}(y_t) & = \mathrm{Var}(\phi y_{t - 1} + \epsilon_t) \\
 & = \mathrm{Var}(\phi y_{t - 1}) + \mathrm{Var}(\epsilon_t) + 2 \mathrm{Cov}(\phi y_{t - 1}, \epsilon_t) \\
 & = \phi^2 \mathrm{Var}(y_{t - 1}) + \sigma^2  + 0 \\
+& = \phi^2 \mathrm{Var}(y_t) + \sigma^2 \\
+& = \frac{\sigma^2}{1 - \phi^2} \\
 \end{align*}
 
-Then using our modeling assumption $\mathrm{Var}(y_t) = \mathrm{Var}(y_{t-1})$,
-\begin{align*}
-\mathrm{Var}(y_t) - \phi^2 \mathrm{Var}(y_t) & = \sigma^2 \\
-% & = \phi^2 \left(\phi^2 \mathrm{Var}(y_{t - 2}) + \sigma^2 \right) + \sigma^2 \\
-% & = \vdots \\
-\end{align*}
-gives the solution $\mathrm{Var}(y_t) = \frac{\sigma^2}{1 - \phi^2}$.
 ```{r properties}
 N <- 10                               ## replicates N
+phi <- 0.9                            ## autocorrelatin parameter
 y <- simTimeSeries(t, N, mu, s, phi)  ## simulate time series
-## legend() add in legend for mean and y label
-## Notice that the y axis is shrunk to 0
 
-## 
-
-mean_y <- apply(y, 1, mean)    ##  calculate the mean
-var_y <-apply(y, 1, var)       ##  calculate the variance
-sd_y <- apply(y, 1, sd)        ##  calculate the standard deviation
+mean_y <- apply(y, 1, mean)           ##  calculate the empirical mean
+var_y <-apply(y, 1, var)              ##  calculate the empirical variance
+sd_y <- apply(y, 1, sd)               ##  calculate the empirical standard deviation
 
 time_data <- data.frame(y=y, t=1:t)
 melt_time <- melt(time_data, id="t")                        
-summary_data <- data.frame(mean_y=mean_y, var_y=var_y, sd_y=sd_y, mu=mu, 
+summary_data <- data.frame(mean_y=mean_y, var_y=var_y, sd_y=sd_y, mu=mu/(1-phi), 
                         s=s, t=1:t)
 
 
 ## plot time series with mean and variance
-
-
 plot_mean <- ggplot(data = melt_time, aes(y=value, x=t)) + 
   geom_line(alpha=1, colour="darkgrey") + 
   geom_line(data=summary_data, aes(y=mean_y, x=t, colour="empirical"), 
@@ -176,15 +194,6 @@ The covariance between observations $\mathrm{Cov}(y_t, y_{t+k})$ at times $k$ la
 \end{align*}
 
 ```{r covariance}
-## detrend the time series <- if you set mu = something other than 0
-# y_detrend <- y-mu
-# ggplot(data=melt(data.frame(y=y_detrend, t=1:t), id="t"), aes(y=value, x=t)) + 
-#   geom_line(alpha=1, colour="darkgrey") + 
-#   scale_y_continuous("y") + scale_x_continuous("t") +
-#   ggtitle(paste(min(N, 10), 
-#                 "time series with trend removed")) + 
-#   theme(plot.title = element_text(size=18))
-
 covariances <- matrix(0, min(t, 20), N)
 for(i in 1:N){
     for(k in 1:min(t, 20)-1){
