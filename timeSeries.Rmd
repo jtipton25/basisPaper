@@ -4,6 +4,7 @@ author: "John Tipton"
 date: "August 24, 2015"
 output: "pdf_document"
 ---
+# Switch forecast and smoother line colors, not sure what is going on...
 ```{r, echo=FALSE}
 ## Load R packages and define helper functions
 library(ggplot2, quietly = TRUE)
@@ -43,14 +44,14 @@ multiplot <- function(..., plotlist=NULL, cols) {
 simTimeSeries <- function(t, N, mu, s, phi){
   if(N == 1){
     y <- rep(0, t)                                      ## initialize container
-    y[1] <- mu[1] + rnorm(1, 0, s)                      ## initailize time series at time 1
+    y[1] <- mu[1] / (1 - phi) + rnorm(1, 0, s)                      ## initailize time series at time 1
     for(i in 2:t){
       epsilon <- rnorm(1, 0, s)                         ## independent random error
       y[i] <- mu[i] + phi * y[i-1] + epsilon            ## autoregressive model
     }
   } else {
     y <- matrix(0, t, N)                                ## initialize container
-    y[1, ] <- mu[1] + rnorm(N, 0, s)                    ## initailize time series at time 1
+    y[1, ] <- mu[1] / (1 - phi) + rnorm(N, 0, s)                    ## initailize time series at time 1
     for(i in 2:t){
       epsilon <- rnorm(N, 0, s)                         ## independent random error
       y[i, ] <- mu[i] + phi * y[i-1, ] + epsilon        ## autoregressive model
@@ -68,8 +69,9 @@ y_t & = y_{t-1} + \epsilon_t
 where $\epsilon_t ~ \mbox{N}(0, \sigma^2)$ is independent, uncorrelated error.
 ```{r randomWalk}
 N <- 1                              ## pick the number of time series
-t <- 1000                           ## pick a time series length
+t <- 100                            ## pick a time series length
 mu <- rep(0, t)                     ## pick a mean structure
+# mu <- rep(6, t)                     ## pick a mean structure
 s_low <- 0.25                       ## pick standard deviation
 s_high <- 1                         ## pick standard deviation
 
@@ -99,8 +101,9 @@ where the time series observations for times $t = 1, \ldots, T$ are given by the
 # Lets simulate some data here
 ```{r simData}
 N <- 1                              ## pick the number of time series
-t <- 1000                           ## pick a time series length
+t <- 100                            ## pick a time series length
 mu <- rep(0, t)                     ## pick a mean structure
+# mu <- rep(6, t)                     ## pick a mean structure
 s <- 0.25                           ## pick standard deviation
 phi_low <- 0.30                     ## pick autocorrelation parameter
 phi_high <- 0.90                    ## pick autocorrelation parameter
@@ -137,7 +140,7 @@ where the $\cdots$ form an infinite recursive sum. The autoregressive model assu
 
 ```{r properties}
 N <- 10                               ## replicates N
-phi <- 0.9                            ## autocorrelatin parameter
+phi <- 0.9                            ## autocorrelation parameter
 y <- simTimeSeries(t, N, mu, s, phi)  ## simulate time series
 
 mean_y <- apply(y, 1, mean)           ##  calculate the empirical mean
@@ -146,8 +149,8 @@ sd_y <- apply(y, 1, sd)               ##  calculate the empirical standard devia
 
 time_data <- data.frame(y=y, t=1:t)
 melt_time <- melt(time_data, id="t")                        
-summary_data <- data.frame(mean_y=mean_y, var_y=var_y, sd_y=sd_y, mu=mu/(1-phi), 
-                        s=s, t=1:t)
+summary_data <- data.frame(mean_y=mean_y, var_y=var_y, sd_y=sd_y, 
+                           mu=mu/(1-phi), s=s, t=1:t)
 
 
 ## plot time series with mean and variance
@@ -222,20 +225,21 @@ Typically of interest in a time series model are the forecast distribution (used
 [y_{\tau+1} | y_{1:{\tau}}] & = [y_{\tau+1} | y_{\tau}],
 \end{align*}
 where the Markov assumption in the autoregressive model says if you know the value of the time series at time $\tau$, the distribution of the forecast at $\tau + 1$ depends only the on the observations $y_{1:{\tau}}$ only through the value $y_{\tau}$. Therefore, the one step ahead forecast expected value is 
-\begin{align*}
+\begin{align}
 \mathrm{E}(y_{\tau+1} | y_{1:{\tau}}) & = \mathrm{E}(y_{\tau+1} | y_{\tau}) \\
 & = \mathrm{E}(\mu + \phi y_{\tau} + \epsilon_{\tau + 1} | y_{\tau}) \\
 & = \mathrm{E}(\mu | y_{\tau}) + \mathrm{E}(\phi y_{\tau}| y_{\tau}) + \mathrm{E}(\epsilon_{\tau+1} | y_{\tau}) \\
 & = \mu + \phi \mathrm{E}(y_{\tau}| y_{\tau}) + 0 \\
 & = \mu + \phi y_{\tau}.\\
-\end{align*}
+\end{align}
 The $k$ step ahead expected forecast is calculated by using a recursive formula of the equation above where 
-\begin{align*}
+\begin{align}
+\label{eq:forecast}
 \mathrm{E}(y_{\tau + k} | y_{1:{\tau}}) & = \left( \sum_{i=1}^k \phi^{(i-1)} \mu \right) \phi^k y_{\tau} \\
 & = \frac{\mu}{1 - \phi} \left(1 - \phi^k \right)  + \phi^k y_{\tau} \\
 & = \frac{\mu}{1 - \phi} + \phi^k \left( y_{\tau} - \frac{\mu}{1 - \phi} \right) \\
 & = \mathrm{E}(y_t) + \phi^k \left( y_{\tau} - \mathrm{E}(y_t) \right). \\
-\end{align*}
+\end{align}
 The $k$ step ahead forecast shows that in the future, we expect the time series to be mean reverting. In other words, as $k$ becomes large, our expected forecast will be close to the mean $\mathrm{E}(y_t)$. To fully specify our predictions, we need to calculate the forecast variances. The one step ahead forecast variance is  
 \begin{align*}
 \mathrm{Var}(y_{\tau+1} | y_{1:{\tau}}) & = \mathrm{Var}(y_{\tau+1} | y_{\tau}) \\
@@ -254,33 +258,16 @@ The $k$ step ahead forecast variance can also be calcuated recursively
 & = \sum_{i=1}^k \phi^{2(i-1)} \sigma^2,
 \end{align*}
 where, as $k$ gets large, the one step ahead forecast variance increases.
-
-Thus, knowing the mean, variance, and covariance at each time $t$ and each lag $k$, we can write the autoregressive model (\ref{eq:ar1}) as 
-\begin{align}
-\label{var}
-\mathbf{y} & = \boldsymbol{\mu} + \boldsymbol{\eta}
-\end{align}
-where $\boldsymbol{\mu} = \mu \mathbf{1}$ and $\boldsymbol{\eta} ~ \mbox{N}\left( \mathbf{0}, \boldsymbol{\Sigma} \right)$ where
-\begin{align*}
-\boldsymbol{\Sigma} & = \frac{\sigma^2}{1 - \phi^2} \begin{pmatrix}
-1 & \phi & \phi^2 & \phi^3 & \cdots & \phi^{T-1}\\
-\phi & 1 & \phi & \phi^2 & \cdots & \phi^{T-2}\\
-\phi^2 & \phi & 1 & \phi & \cdots & \phi^{T-3} \\
-\phi^3 & \phi^2 & \phi & 1 & \cdots & \phi^{T-4} \\
-\vdots & \vdots & \vdots & \vdots & \ddots & \vdots \\
-\phi^{T-1} & \phi^{T-2} & \phi^{T-3} & \phi^{T-4} & \cdots & 1
-\end{pmatrix},
-\end{align*}
-where these parameters are the variance on the diagonal and the covariance on the off diagonal.
 ```{r}
 set.seed(11)
 N <- 1                                ## replicates N
-phi <- 0.9                            ## autocorrelatin parameter
+phi <- 0.9                            ## autocorrelation parameter
 mu <- rep(0, t)                       ## pick a mean structure
+# mu <- rep(6, t)                       ## pick a mean structure
 s <- 0.25                             ## pick standard deviation
 y <- simTimeSeries(t, N, mu, s, phi)  ## simulate time series
 
-tau <- 750
+tau <- 75
 y[(tau+1):t] <- NA
 forecast_data <- data.frame(y=y, t=1:t)
 melt_forecast <- melt(forecast_data, id="t") 
@@ -288,39 +275,162 @@ forecast_mean <- rep(NA, t-tau)
 forecast_sd <- rep(NA, t-tau)
 for(i in (tau+1):t){
   lag <- i-tau
-  forecast_mean[i-tau] <- mu[i] / (1 - phi) + phi^(lag) * (y[tau] - mu[i] / (1 - phi))
+  forecast_mean[i-tau] <- mu[i] / (1 - phi) + phi^(lag) *
+                          (y[tau] - mu[i] / (1 - phi))
   forecast_sd[i-tau] <- sqrt(sum(phi^(2 * (1:lag - 1)) * s^2))
 }
 forecast_data <- data.frame(mean=forecast_mean, sd=forecast_sd, 
-                            lower_CI=forecast_mean - 2 * forecast_sd,
-                            upper_CI=forecast_mean + 2 * forecast_sd,
+                            lower_CI=forecast_mean - 1.96 * forecast_sd,
+                            upper_CI=forecast_mean + 1.96 * forecast_sd,
                             t=(tau+1):t)
 ggplot(data = melt_forecast, aes(y=value, x=t)) + 
   geom_line(alpha=1, colour="darkgrey") + 
   geom_line(data=forecast_data, aes(y=mean, x=t, colour="forecast mean"), 
-            alpha=0.75) + 
-  geom_line(data=forecast_data, aes(y=lower_CI, x=t, colour="95% forecast CI"), alpha=0.75, 
+            alpha=0.75, lwd=2) + 
+  geom_line(data=forecast_data, aes(y=lower_CI, x=t,
+                                    colour="95% forecast CI"), alpha=0.75, 
             lty=1, lwd=2) + 
-  geom_line(data=forecast_data, aes(y=upper_CI, x=t, colour="95% forecast CI"), alpha=0.75, 
+  geom_line(data=forecast_data, aes(y=upper_CI, x=t, 
+                                    colour="95% forecast CI"), alpha=0.75, 
             lty=1, lwd=2) + 
-  scale_colour_manual("Mean", labels=c("forecast mean", "95% forecast CI"), 
-                      values=c("forecast mean"="red","95% forecast CI"="blue")) + 
+  scale_colour_manual("Forecast", labels=c("forecast mean", "95% forecast CI"),
+                      values=c("forecast mean"="blue", 
+                               "95% forecast CI"="red")) + 
   scale_y_continuous("y") + scale_x_continuous("t") +
-  ggtitle(paste(min(N, 10), 
-                "time series with empircal and true mean")) +
+  ggtitle("time series with forecast") +
   theme(plot.title = element_text(size=18))
- 
 ```
 
+The other distribution of interest is the smoothing distrubtion. The smoothing distribution at time $\tau$ is given by $[y_{\tau} | \mathbf{y}_{- \tau}]$ where $\mathbf{y}_{-\tau}$ consists of all the data points except $y_{\tau}$. Using our similar difference equation approach as above, we can write the mean of the smoothing distribution at time $\tau$ as
+\begin{align}
+\label{eq:smoother}
+[y_{\tau} | \mathbf{y}_{- \tau}] & = [y_\tau | y_{\tau-1}] [y_{\tau+1} | y_{\tau}] \\
+& \propto \exp{ \left\{- \frac{(y_{\tau} - \mu - \phi y_{\tau-1})^2}{2\sigma^2} \right\}} \exp{ \left\{- \frac{(y_{\tau+1} - \mu - \phi y_{\tau})^2}{2\sigma^2} \right\}} \\
+& \propto \exp{ \left\{- \frac{y_{\tau}^2 (1 + \phi^2) - 2 y_{\tau+1} (\mu + \phi y_{\tau-1} + \phi(\mu + y_{t+1}))}{2\sigma^2} \right\}}
+\end{align}
+which is normally distributed with mean $\frac{\mu + \phi y_{\tau-1} + \phi(\mu + y_{t+1})}{1 + \phi^2}$ and variance $\frac{\sigma^2}{1+\phi^2}$. At the starting time point $t=1$, the smoothing distribution is $\mbox{N}(\frac{\phi(\mu + y_{\tau+1})}{1+\phi^2}, \frac{\sigma^2}{\phi^2})$ and at the endpoint $t=T$, the smoothing distribution is $\mbox{N}(\frac{\mu + \phi y_{\tau-1}}{1+\phi^2}, \sigma^2)$.
+```{r}
+set.seed(11)
+N <- 1                                ## replicates N
+phi <- 0.9                            ## autocorrelation parameter
+mu <- rep(0, t)                       ## pick a mean structure
+# mu <- rep(6, t)                       ## pick a mean structure
+s <- 0.25                             ## pick standard deviation
+y <- simTimeSeries(t, N, mu, s, phi)  ## simulate time series
+
+smoother_mean <- rep(NA, t)
+smoother_sd <- rep(NA, t)
+for(i in 1:t){
+  if (i==1) {
+    smoother_mean[i] <- (phi * (mu[i] + y[i+1])) / (1 + phi^2)
+    smoother_sd[i] <- sqrt(s^2/phi^2)
+  } else if (i == t) {
+    smoother_mean[i] <- (mu[i] + phi * y[i-1]) / (1 + phi^2)
+    smoother_sd[i] <- sqrt(s^2/( 1 + phi^2))
+  } else {
+    smoother_mean[i] <- (phi * (mu[i] + y[i+1]) + mu[i] + phi * y[i-1]) / 
+                    (1 + phi^2)
+    smoother_sd[i] <- sqrt(s^2)
+  }
+}
+
+smoother_data <- data.frame(mean=smoother_mean, sd=smoother_sd, t=1:t,
+                            lower_CI=smoother_mean - 1.96 * smoother_sd, 
+                            upper_CI=smoother_mean + 1.96 * smoother_sd)
+melt_smoother <- melt(data.frame(y=y, t=1:t), id="t") 
+ggplot(data = melt_smoother, aes(y=value, x=t)) + 
+  geom_line(alpha=1, colour="darkgrey", lwd=2) + 
+  geom_line(data=smoother_data, aes(y=mean, x=t, colour="smoother mean"), 
+            alpha=0.75) + 
+  geom_line(data=smoother_data, aes(y=lower_CI, x=t,
+                                    colour="95% smoother CI"), alpha=0.75, 
+            lty=1, lwd=1) + 
+  geom_line(data=smoother_data, aes(y=upper_CI, x=t, 
+                                    colour="95% smoother CI"), alpha=0.75, 
+            lty=1, lwd=1) + 
+  scale_colour_manual("Smoother",
+                      labels=c("smoother mean", "95% smoother CI"), 
+                      values=c("smoother mean"="red", 
+                               "95% smoother CI"="blue")) + 
+  scale_y_continuous("y") + scale_x_continuous("t") +
+  ggtitle("time series smoother") +
+  theme(plot.title = element_text(size=18))
+
+
+
+
+```
+
+Now that we have derived the quantities and distributions of most interest, we can re-write (\ref{eq:ar1}) as the vectorized model
+\begin{align}
+\label{var}
+\mathbf{y} & = \boldsymbol{\mu} + \boldsymbol{\eta}
+\end{align}
+where $\boldsymbol{\mu} = \mu \mathbf{1}$ and $\boldsymbol{\eta} ~ \mbox{N}\left( \mathbf{0}, \sigma^2 \mathbf{R}(\phi) \right)$ where
+\begin{align*}
+\mathbf{R}(\phi) & = \begin{pmatrix}
+1 & \phi & \phi^2 & \cdots & \phi^{T-2} & \phi^{T-1}\\
+\phi & 1 & \phi & \cdots & \phi^{T-3} & \phi^{T-2}\\
+\phi^2 & \phi & 1 & \cdots & \phi^{T-4} & \phi^{T-3} \\
+\vdots & \vdots & \vdots & \ddots & \vdots & \vdots \\
+\phi^{T-1} & \phi^{T-2} & \phi^{T-3} & \cdots & \phi & 1
+\end{pmatrix}.
+\end{align*}
+Notice that the mean is the same as in the difference equations and the parameters for the covariance matrix $\boldsymbol{\Sigma}$ include the variance on the diagonal and the covariances on the off diagonal. A natural question is what was gained by writing (\ref{eq:ar1}) in a vector format? Primarily, the benefits are reduced computation time when fitting models and generating predicitons. Additionally, one can use a basis expansion to reduce computational effort. If we are focused on the forecast distribution, we can write the forecast distribution (\ref{eq:forecast}) as
+\begin{align*}
+\mathbf{Z} \mathbf{R}(\phi)^{-1} (\mathbf{y} - \boldsymbol{\mu})
+\end{align*}
+for a proper choice of $T-1 \times t$ matrix $\mathbf{Z}$. We know from (\ref{eq:forecast}) that $\mathbf{Z} \mathbf{R}(\phi)^{-1} (\mathbf{y} - \boldsymbol{\mu}) = (\mu + \phi y_1, \mu + \phi y_2, \ldots, \mu + \phi y_{T-1})'$ which implies 
+\begin{align*}
+\mathbf{Z} \mathbf{R}^{-1}(\phi) & = \begin{pmatrix}
+\phi & 0 & 0 & \cdots & 0 & 0 \\
+0 & \phi & 0 & \cdots & 0 & 0 \\
+0 & 0 & \phi & \cdots & 0 & 0\\
+\vdots & \vdots & \vdots & \ddots & \vdots & \vdots \\
+0 & 0 & 0 & \cdots & \phi & 0\\
+\end{pmatrix}
+\end{align*}
+which, when solved for $\mathbf{Z}$ is 
+\begin{align}
+\label{eq:forecastVector}
+\mathbf{Z} & = \begin{pmatrix}
+\phi & 0 & 0 & \cdots & 0 & 0 \\
+0 & \phi & 0 & \cdots & 0 & 0 \\
+0 & 0 & \phi & \cdots & 0 & 0\\
+\vdots & \vdots & \vdots & \ddots & \vdots & \vdots \\
+0 & 0 & 0 & \cdots & \phi & 0\\
+\end{pmatrix} \mathbf{R}(\phi) \\
+& = \begin{pmatrix}
+\phi & 0 & 0 & \cdots & 0 & 0 \\
+0 & \phi & 0 & \cdots & 0 & 0 \\
+0 & 0 & \phi & \cdots & 0 & 0\\
+\vdots & \vdots & \vdots & \ddots & \vdots & \vdots \\
+0 & 0 & 0 & \cdots & \phi & 0\\
+\end{pmatrix} \begin{pmatrix}
+1 & \phi & \phi^2 & \cdots & \phi^{T-2} & \phi^{T-1}\\
+\phi & 1 & \phi & \cdots & \phi^{T-3} & \phi^{T-2}\\
+\phi^2 & \phi & 1 & \cdots & \phi^{T-4} & \phi^{T-3} \\
+\phi^3 & \phi^2 & \phi & \cdots & \phi^{T-5} & \phi^{T-4} \\
+\vdots & \vdots & \vdots & \ddots & \vdots & \vdots \\
+\phi^{T-1} & \phi^{T-2} & \phi^{T-3} & \cdots & \phi & 1
+\end{pmatrix} \\
+& = \begin{pmatrix}
+\phi & \phi^2 & \phi^3 & \cdots & \phi^{T-1} & \phi^{T}\\
+\phi^2 & \phi & \phi^2 & \cdots & \phi^{T-2} & \phi^{T-1}\\
+\phi^3 & \phi^2 & \phi & \cdots & \phi^{T-3} & \phi^{T-2} \\
+\vdots & \vdots & \vdots & \ddots & \vdots & \vdots \\
+\phi^{T-1} & \phi^{T-2} & \phi^{T-3} & \cdots & \phi & \phi^2
+\end{pmatrix} \\
+\end{align}
 
 ```{r vectorTimeSeries}
-Sigma <- s^2 / (1 - phi^2) * toeplitz(phi^(0:(t-1)))
+R <- toeplitz(phi^(0:(t-1)))
+Sigma <- s^2 / (1 - phi^2) * R
 library(mvtnorm)
 y_vec <- t(rmvnorm(N, mu, Sigma))
 
 vec_data <- data.frame(y=y_vec, t=1:t)
 melt_vec <- melt(vec_data, id="t")                        
-
 
 ggplot(data = melt_vec, aes(y=value, x=t)) + 
   geom_line(alpha=1, colour="darkgrey") + 
@@ -328,4 +438,15 @@ ggplot(data = melt_vec, aes(y=value, x=t)) +
   ggtitle(paste(min(N, 10), 
                 "time series simulated as a vector")) + 
   theme(plot.title = element_text(size=18))
+```
+
+
+```{r forecastVector}
+Z <- toeplitz(c(phi^(1:t)))[1:(t-1), ]      ## construct the (t-1) by t basis
+                                            ## matrix for one step ahead
+                                            ## forecasting
+
+y_hat_one_step_ahead <- Z %*% solve(R) %*% (y - mu)
+matplot(y, type = 'l')
+lines(2:t, y_hat_one_step_ahead, col = "red")
 ```
