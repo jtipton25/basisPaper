@@ -427,7 +427,12 @@ which, when solved for $\mathbf{Z}$ is
 R <- toeplitz(phi^(0:(t-1)))
 Sigma <- s^2 / (1 - phi^2) * R
 library(mvtnorm)
-y_vec <- t(rmvnorm(N, mu, Sigma))
+X <- cbind(rep(1, t), rnorm(t))            ## construct a simple linear
+                                           ## regression model with an 
+                                           ## intercept and one covariate
+
+beta <- c(3, 2)                            ## choose beta_0=3, beta_1=2
+y_vec <- t(rmvnorm(N, X %*% beta, Sigma))
 
 vec_data <- data.frame(y=y_vec, t=1:t)
 melt_vec <- melt(vec_data, id="t")                        
@@ -500,3 +505,108 @@ which, when solved for $\mathbf{Z}$ is
 \phi^{T-1} & \phi^{T-2} & \phi^{T-3} & \cdots & \phi & \phi^2
 \end{pmatrix} \\
 \end{align}
+
+
+# Another approach
+
+Starting with the derivations above and the writing of the ar(1) difference equations before the vectorization step, we write the model
+\begin{align}
+\mathbf{y} & = \boldsymbol{\mu} + \boldsymbol{\eta} \\
+& = \mathbf{X} \boldsymbol{\beta} + \boldsymbol{\eta}, \\
+\end{align}
+setting $\boldsymbol{\mu} = \mathbf{X} \boldsymbol{\beta}$. We choose the autoregressive model of order one setting $\boldsymbol{\eta} \sim \mbox{N}(\mathbf{0}, \sigma^2 boldsymbol{R}(\phi))$ for $\mathbf{R}(\phi)$ from before. Because we know that the correlation matrix $\mathbf{R}(\phi)$ is positive definite, we know there exists the matrix decompostion
+\begin{align*}
+\mathbf{R}(\phi) & = \mathbf{Z}(\phi) \mathbf{Z}'(\phi)
+\end{align*}
+where $\mathbf{Z}(\phi)$ can be calculated through either a Cholesky decomposition or a singular value decomposition, We use a Cholesky decomposition to start. 
+
+The question now is what did we accomplish? First, computing the matrix decomposition of $\mathbf{R}(\phi)$ for large values of $t$ is often much faster, leading to less time waiting for large, complicated models to run and thus getting the desired result faster. This is because the computation time for the matrix inversion $\mathbf{R}^{-1}(\phi)$ is more than the computation to perform the Cholesky decomposition, and because $\mathbf{R}^{-1}(\phi)$ is calculated to fit the model, this lessens time to fit models, especially when using Markov Chain Monte Carlo.
+
+Now we write our basis expanded ar(1) model as
+\begin{align}
+\label{eq:mixedModel}
+\mathbf{y} & = \mathbf{X} \boldsymbol{\beta} + \mathbf{Z}(\phi) \boldsymbol{\alpha}
+\end{align}
+where $\boldsymbol{\alpha} \sim \mbox{N}(\mathbf{0}, \sigma^2 \boldsymbol{I})$.
+We notice that (\ref{eq:mixedModel}) is a linear mixed model with random effects $\boldsymbol{\alpha}$. Therefore, we know the variance
+\begin{align*}
+\mathrm{Var}(\mathbf{y}) & = \mathbf{Z}(\phi) \left(\sigma^2 \mathbf{I}\right) \mathbf{Z}'(\phi) \\
+& = \sigma^2 \mathbf{Z}(\phi) \mathbf{Z}'(\phi) \\
+& = \sigma^2 \mathbf{R}(\phi),
+\end{align*}
+demostrating that the two models are the same.
+
+
+Because we have 100 time points, we have 100 basis functions, as shown below, in addition to the slope and linear trend.
+
+A natural question in large data scenarios is "can we improve the speed of model fit?" Often the use of computational tricks of basis expansion can improve speed. Another useful method is that of dimension reduction. Consider the previous figure. There are an awful lot of basis functions on that plot. Can we still retain model performance with fewer basis functions? The answer in practice is almost always yes. The loss of model performance greatly depends on the particular problem and method of basis expasion. Using the Cholesky decompostion, there is no loss of model performance as we have not performed dimension reduction, using all of the bases. Unfortunately, the Cholesky decomposition is not easy to reduce dimension. Thus, the singular value decomposition (SVD) is often used. The SVD $\mbox{svd}(\mathrm{R}(\phi)) = \mathbf{U} \mathbf{D}^{1/2} \mathbf{D}^{1/2} \mathbf{V}$ consists of two orthogonal matricies where the columns of $\mathbf{U}$ are the left singular vectors, the rows of $\mathbf{V}$ are the right singular vectors, and the matrix $\mathbf{D}^{1/2}$ is a diagonal matrix with the square root of the singular values in decreasing order. In our example, because $\mathbf{R}(\phi)$ is square and positive definite, the SVD is often called an Eigen decomposition and the basis functions $\mathbf{Z} = \mathbf{U} \mathbf{D}^{1/2}$ form an Eigen basis.
+
+# make this plot better
+```{r arBasis}
+N <- 10                                    ## construct 10 time series
+R <- toeplitz(phi^(0:(t-1)))
+Sigma <- s^2 * R
+X <- cbind(rep(1, t), 1:t)                 ## construct a simple linear
+                                           ## regression model in time with an 
+					   					   					   			 ## intercept and one covariate
+
+beta <- c(3, 2 / t)                        ## choose beta_0=3, beta_1=2 units
+                                           ## increase during time series
+
+y_vec <- t(rmvnorm(N, X %*% beta, Sigma))  ## N by t matrix, rows are        
+                                           ## independent time series simulated
+					   					   					         ## from vectorized model
+
+Z_chol <- t(chol(R))                       ## construct lower diagonal
+					   					   					         ## basis matrix
+
+alpha <- matrix(rnorm(N * t, 0, s), t, N)  ## simulate alpha ~ normal(0, s^2)
+y_chol <- matrix(rep(X %*% beta, N), t, N) + Z_chol %*% alpha
+					   					   					   			 ## N by t matrix, rows
+                                           ## are independent time series 
+					   					   					         ## simulated from basis model
+
+Z_svd <- svd(R)$u %*% diag(sqrt(svd(R)$d))
+                                           ## construct svd basis matrix
+
+alpha <- matrix(rnorm(N * t, 0, s), t, N)  ## simulate alpha ~ normal(0, s^2)
+y_svd <- matrix(rep(X %*% beta, N), t, N) + Z_svd %*% alpha
+					   					   					   			 ## N by t matrix, rows
+                                           ## are independent time series 
+					   					   					         ## simulated from basis model   
+
+y_reduced_dimension <- matrix(rep(X %*% beta, N), t, N) + Z_svd[, 1:20] %*% alpha[1:20, ]
+					   					   					   			 ## N by t matrix, rows
+                                           ## are independent time series 
+					   					   					         ## simulated from reduced dimension
+					   					   					         ## basis model   
+
+basis_data <- data.frame(y_vec=y_vec, y_chol=y_chol, y_svd=y_svd,
+                         y_reduced=y_reduced_dimension, t=1:t) 
+
+melt_basis <- melt(basis_data, id="t") 
+## assign variable name of y_vec and y_cho
+melt_basis$variable <- substr(melt_basis$variable, 1, 5)
+
+ggplot(data = melt_basis, aes(y=value, x=t, group=variable)) + 
+  geom_line(alpha=1, colour="darkgrey") + 
+  scale_y_continuous("y") + scale_x_continuous("t") + 
+  ggtitle(paste(min(N, 10), 
+                "time series simulated as a vector or through 
+                basis expansion")) + 
+  theme(plot.title = element_text(size=18)) +
+  facet_grid(variable ~ .)
+
+layout(matrix(1:4, 2, 2))
+matplot(y_vec, type='l')
+matplot(y_chol, type='l')
+matplot(y_svd, type='l')
+matplot(y_reduced_dimension, type='l')
+
+layout(matrix(1:3, 3, 1))
+matplot(Z_chol, type='l', main="Cholesky basis functions")
+matplot(Z_svd, type='l', main="svd basis functions")
+matplot(Z_svd[, 1:20], type='l', main="reduced dimension basis functions")
+```
+
+
