@@ -7,6 +7,7 @@ output: "pdf_document"
 # Switch forecast and smoother line colors, not sure what is going on...
 ```{r, echo=FALSE}
 ## Load R packages and define helper functions
+library(knitr)
 library(ggplot2, quietly = TRUE)
 library(reshape2, quietly = TRUE)
 library(grid, quietly = TRUE)
@@ -156,12 +157,12 @@ mu=mu, s=s, t=1:t)
 
 
 ## plot time series with mean and variance
-plot_mean <- ggplot(data = melt_time, aes(y=value, x=t)) + 
+plot_mean <- ggplot(data = melt_time, aes(y=value, x=t, group=variable)) + 
   geom_line(alpha=1, colour="darkgrey") + 
-  geom_line(data=summary_data, aes(y=mean_y, x=t, colour="empirical"), 
-            alpha=0.75) + 
-  geom_line(data=summary_data, aes(y=mu, x=t, colour="truth"), alpha=0.75, 
-            lty=2, lwd=2) + 
+  geom_line(data=summary_data, aes(y=mean_y, x=t, colour="empirical", 
+                                   group=NA), alpha=0.75, lty=2, lwd=2) + 
+  geom_line(data=summary_data, aes(y=mu, x=t, colour="truth", group = NA),
+            alpha=0.75, lty=1, lwd=2) + 
   scale_colour_manual("Mean", labels=c("empirical", "truth"), 
                       values=c("empirical"="red","truth"="blue")) + 
   scale_y_continuous("y") + scale_x_continuous("t") +
@@ -169,12 +170,12 @@ plot_mean <- ggplot(data = melt_time, aes(y=value, x=t)) +
                 "time series with empircal and true mean")) +
   theme(plot.title = element_text(size=18))
  
-plot_sd <- ggplot(data = melt_time, aes(y=value, x=t)) + 
+plot_sd <- ggplot(data = melt_time, aes(y=value, x=t, group=variable)) + 
   geom_line(alpha=1, colour="darkgrey") + 
-  geom_line(data=summary_data, aes(y=sd_y, x=t, colour="empirical"), 
-            alpha=0.75) + 
-  geom_line(data=summary_data, aes(y=s, x=t, colour="truth"), alpha=0.75, 
-            lty=2, lwd=2) + 
+  geom_line(data=summary_data, aes(y=sd_y, x=t, colour="empirical", group=NA), 
+            alpha=0.75, lty=2, lwd=2) + 
+  geom_line(data=summary_data, aes(y=s, x=t, colour="truth", group=NA), 
+            alpha=0.75, lty=1, lwd=2) + 
   scale_colour_manual("Std Dev", labels=c("empirical", "truth"), 
                       values=c("empirical"="red","truth"="blue")) + 
   scale_y_continuous("y") + scale_x_continuous("t") + 
@@ -211,9 +212,11 @@ for(i in 1:N){
 cov_data <- data.frame(y=covariances, t=1:20)
 melt_cov <- melt(cov_data, id="t")
 ggplot(data = melt_cov, aes(y=value, x=t)) + 
-  geom_line(data=melt_cov, aes(y=value, x=t, group=variable, colour="empirical"), alpha=1) + 
-  geom_line(data=data.frame(y=s^2/(1-phi^2) * phi^(0:min(t,20)), x=0:min(t, 20)), aes(y=y, x=x, colour="truth"), 
-            alpha=0.75) + 
+  geom_line(data=melt_cov, aes(y=value, x=t, group=variable, 
+                               colour="empirical"), alpha=1) + 
+  geom_line(data=data.frame(y=s^2/(1-phi^2) * phi^(0:min(t,20)),
+                            x=0:min(t, 20)), aes(y=y, x=x, colour="truth"), 
+            alpha=0.75, lwd=2) + 
   scale_colour_manual("Autocovariance", labels=c("empirical", "true"), 
                       values=c("empirical"="darkgrey","truth"="blue")) + 
   scale_y_continuous("autocovariance") + scale_x_continuous("lag") + 
@@ -345,7 +348,7 @@ melt_smoother <- melt(data.frame(y=y, t=1:t), id="t")
 ggplot(data = melt_smoother, aes(y=value, x=t)) + 
   geom_line(alpha=1, colour="darkgrey", lwd=2) + 
   geom_line(data=smoother_data, aes(y=mean, x=t, colour="smoother mean"), 
-            alpha=0.75) + 
+            alpha=0.75, lwd=1.5) + 
   geom_line(data=smoother_data, aes(y=lower_CI, x=t,
                                     colour="95% smoother CI"), alpha=0.75, 
             lty=1, lwd=1) + 
@@ -575,7 +578,7 @@ y_svd <- matrix(rep(X %*% beta, N), t, N) + Z_svd %*% alpha
                                            ## are independent time series 
 					   					   					         ## simulated from basis model   
 
-y_reduced_dimension <- matrix(rep(X %*% beta, N), t, N) + Z_svd[, 1:20] %*% alpha[1:20, ]
+y_reduced_dimension <- matrix(rep(X %*% beta, N), t, N) + Z_svd[, 1:40] %*% alpha[1:40, ]
 					   					   					   			 ## N by t matrix, rows
                                            ## are independent time series 
 					   					   					         ## simulated from reduced dimension
@@ -586,27 +589,40 @@ basis_data <- data.frame(y_vec=y_vec, y_chol=y_chol, y_svd=y_svd,
 
 melt_basis <- melt(basis_data, id="t") 
 ## assign variable name of y_vec and y_cho
-melt_basis$variable <- substr(melt_basis$variable, 1, 5)
+melt_basis$variable2 <- as.factor(rep(1:4, each = N*t))
+# melt_basis$variable <- factor(rep(rep(1:N, each=t), 4))
+levels(melt_basis$variable2) = c("Second Order", "Cholesky Basis", "SVD Basis", "Reduced Dimension Basis")
 
 ggplot(data = melt_basis, aes(y=value, x=t, group=variable)) + 
   geom_line(alpha=1, colour="darkgrey") + 
   scale_y_continuous("y") + scale_x_continuous("t") + 
   ggtitle(paste(min(N, 10), 
-                "time series simulated as a vector or through 
-                basis expansion")) + 
-  theme(plot.title = element_text(size=18)) +
-  facet_grid(variable ~ .)
+                "time series simulated as second order or first order basis expansion")) + 
+  theme(plot.title = element_text(size=14)) +
+  facet_grid(~variable2)
 
-layout(matrix(1:4, 2, 2))
-matplot(y_vec, type='l')
-matplot(y_chol, type='l')
-matplot(y_svd, type='l')
-matplot(y_reduced_dimension, type='l')
-
+# layout(matrix(1:4, 4, 1))
+# matplot(y_vec, type='l')
+# matplot(y_chol, type='l')
+# matplot(y_svd, type='l')
+# matplot(y_reduced_dimension, type='l')
+# 
 layout(matrix(1:3, 3, 1))
 matplot(Z_chol, type='l', main="Cholesky basis functions")
 matplot(Z_svd, type='l', main="svd basis functions")
 matplot(Z_svd[, 1:20], type='l', main="reduced dimension basis functions")
+
+basis_df <- data.frame(Z_chol=Z_chol, Z_svd=Z_svd, Z_reduced=Z_svd[, 1:20], t=1:t)
+melt_basis_df <- melt(basis_df, "t")
+melt_basis_df$variable2 <- as.factor(c(rep(1, t*t), rep(2, t*t), rep(3, 20*t)))
+levels(melt_basis_df$variable2) = c("Cholesky Basis", "SVD Basis", "Reduced Dimension Basis")
+ggplot(data = melt_basis_df, aes(y=value, x=t, group=variable)) + 
+  geom_line(alpha=1, colour="darkgrey") + 
+  scale_y_continuous("y") + scale_x_continuous("t") + 
+  ggtitle(paste(min(N, 10), 
+                "Plot of bases used for AR(1) model")) + 
+  theme(plot.title = element_text(size=14)) +
+  facet_grid(variable2~.)
 ```
 
 
