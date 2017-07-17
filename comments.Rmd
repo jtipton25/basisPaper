@@ -1,0 +1,51 @@
+---
+title: "Comments on revision"
+author: "John Tipton"
+date: "September 2, 2016"
+output: pdf_document
+---
+# Response to reviewers
+
+- Page 3, bullet 2: familiar to statisticians
+
+- Page 3 bullet 6, end of paragraph: As shown in Hanks
+
+- Page 5, bullet 1, end of paragraph: we can refine our definitions
+
+- Page 10, bullet 2: We have integrated
+
+# Manuscript comments
+
+- Line 56: Are we really isolating the autocorrelation or just accounting for it?
+
+- Line 75-76: We first introduce the concept of basis functions then show how basis functions facilitate first-order and second-order model specifications
+
+- Line 88: add transpose $(depth_1, \ldots, depth_n)'$
+
+- Line 106: why not write explicitly $\mathbf{z}_2 = \mathbf{z}_1^2$
+
+- Line 107: which can facilitate interpretation, increase computational efficiency, and improve numerical stability of estimation algorithms.
+
+- Line 127: The reduced correlation can improve performance of the estimation algorithm (recall issues with variance inflation factors in linear regression), demonstrating how choice among equivalent basis expansions can be beneficial.
+
+- Line 148: generates autocorrelation over the space of interest $x$.
+
+- Line 192: include an effect
+
+- Line 208 could be accounted for by explicitly modeling
+
+- Eq(10): $t$ has not been defined
+
+- Lines 241-253: Sometimes the dependence on $\phi$ is explicit ($\mathbf{Z}(\phi)$, $\mathbf{R}(\phi)$) and sometimes the dependence is implicit ($\mathbf{Q}$, $\boldsymbol{\Lambda}$). I could see this as confusing to a beginner, especially at line 251 where $\mathbf{Z}(\phi)=\mathbf{Q}(\phi)$. This might lead one to ask what the difference is between $\mathbf{Q}$ and $\mathbf{Q}(\phi)$ .
+
+- Example one has subheaders second-order and first-order. You can include these at lines 375 and 388 of example two and lines 423 and 450 for consistency. I also think this would aid in use of the paper as a quick reference for examples.
+
+- Lines 437-440: this sentence feels out of place here as it is not related to predictive skill of the model. Maybe move to line 432 or perhaps a better fit is line 456 - because there is no equivalent kernel, we use the predictive process...
+
+- Line 455: basis coefficients are correlated in a reduced dimension of geographic space.
+
+- Line 497: have demonstrated, there are many cases where the two approaches...
+
+- Line 533: discontinuities seems incorrect. Maybe try "is thought to have local influence, then the basis functions that capture nearby structure and have .."
+
+- Line 586: R packages
